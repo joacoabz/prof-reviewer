@@ -18,7 +18,11 @@ Now, your task is to assign a score from **0 to 5**, using the official assessme
 
 ### {Criterion} Official Descriptors (Cambridge English)
 
-{Criterion-description.md}
+{Criterion-descriptor}
+
+### Collegue’s analysis:
+
+{Analysis}
 
 ---
 
@@ -27,6 +31,7 @@ Now, your task is to assign a score from **0 to 5**, using the official assessme
 ```json
 {
   "criterion": "[INSERT CRITERION NAME]",
+  "justification": "[2–3 sentence explanation based on official descriptors and your previous analysis]",
   "score": 0-5,
-  "justification": "[2–3 sentence explanation based on official descriptors and your previous analysis]"
 }
+

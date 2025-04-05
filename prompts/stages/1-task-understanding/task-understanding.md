@@ -12,16 +12,15 @@ Please provide a detailed analysis of the following elements:
 
 ---
 
+## Task:
+
+{Task}
+
+---
+
 ### Output Format:
 
 ```json
 {
-  "text_type": "Essay",
-  "target_reader": "An educated but general audience reading an international magazine",
-  "purpose": "To present a clear argument and support it with examples",
-  "required_points": [
-    "Discuss two of the given options",
-    "Explain which option is more important and why"
-  ],
-  "tone_and_register": "Formal, objective, analytical"
+  "task_understanding": "Provide a detailed analysis of the task covering all the elements mentioned above: text type/genre, target reader, purpose, content points, and tone/register. Include any nuances or special requirements that would be important for assessment."
 }
