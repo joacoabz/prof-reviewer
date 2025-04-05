@@ -192,34 +192,37 @@ class Pipeline:
                 tuples of (score, justification)
         """
         with log_time("Complete pipeline execution"):
-            openai_client = OpenAIClient()
+            try:
+                openai_client = OpenAIClient()
 
-            students_solution = self.understand_solution(
-                image_paths=image_paths, openai_client=openai_client
-            )
-            self.pipeline_logger.log_student_solution(students_solution)
+                students_solution = self.understand_solution(
+                    image_paths=image_paths, openai_client=openai_client
+                )
+                self.pipeline_logger.log_student_solution(students_solution)
 
-            task_understanding_obj = self.task_understanding(
-                task=self.task, openai_client=openai_client
-            )
-            task_understanding = json.dumps(task_understanding_obj)
-            self.pipeline_logger.log_task_understanding(task_understanding_obj)
+                task_understanding_obj = self.task_understanding(
+                    task=self.task, openai_client=openai_client
+                )
+                task_understanding = json.dumps(task_understanding_obj)
+                self.pipeline_logger.log_task_understanding(task_understanding_obj)
 
-            general_comment, criterion_scores, analysis = self.assessment(
-                task_understanding=task_understanding,
-                students_solution=students_solution,
-                openai_client=openai_client,
-            )
+                general_comment, criterion_scores, analysis = self.assessment(
+                    task_understanding=task_understanding,
+                    students_solution=students_solution,
+                    openai_client=openai_client,
+                )
 
-            analysis = json.dumps(analysis)
+                analysis = json.dumps(analysis)
 
-            detailed_analysis = self.detailed_analysis(
-                task_understanding=task_understanding,
-                students_solution=students_solution,
-                analysis=analysis,
-                openai_client=openai_client,
-            )
+                detailed_analysis = self.detailed_analysis(
+                    task_understanding=task_understanding,
+                    students_solution=students_solution,
+                    analysis=analysis,
+                    openai_client=openai_client,
+                )
 
-            self.pipeline_logger.complete_run()
+                self.pipeline_logger.complete_run()
 
-            return general_comment, criterion_scores, detailed_analysis
+                return general_comment, criterion_scores, detailed_analysis
+            except Exception as e:
+                raise e

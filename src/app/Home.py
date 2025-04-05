@@ -1,6 +1,15 @@
 import streamlit as st
+import os
 
-st.set_page_config(page_title="Prof Reviewer - Home", page_icon="📝", layout="wide")
+# Set page config first
+st.set_page_config(
+    page_title="Prof Reviewer - Home", page_icon=":pencil:", layout="wide"
+)
+
+# Set OpenAI API key from Streamlit secrets
+if "openai" in st.secrets:
+    os.environ["OPENAI_API_KEY"] = st.secrets["openai"]["api_key"]
+    st.sidebar.success("API key loaded from secrets")
 
 st.title("Welcome to Prof Reviewer")
 

@@ -127,7 +127,7 @@ else:
     st.write(f"Found {len(history_entries)} past analyses")
 
     # Create columns for the table header
-    col1, col2, col3, col4, col5 = st.columns([2, 5, 2, 2, 1])
+    col1, col2, col3, col4 = st.columns([2, 6, 2, 1])
     with col1:
         st.write("**Date**")
     with col2:
@@ -135,13 +135,11 @@ else:
     with col3:
         st.write("**Score**")
     with col4:
-        st.write("**CEFR Level**")
-    with col5:
         st.write("**Actions**")
 
     # Display each history entry
     for entry in history_entries:
-        col1, col2, col3, col4, col5 = st.columns([2, 5, 2, 2, 1])
+        col1, col2, col3, col4 = st.columns([2, 6, 2, 1])
 
         with col1:
             st.write(entry["timestamp"].strftime("%Y-%m-%d %H:%M"))
@@ -161,20 +159,6 @@ else:
             st.write(f"{total_score}/{max_score} ({score_percentage:.1f}%)")
 
         with col4:
-            # Determine CEFR level based on percentage
-            if score_percentage >= 90:
-                cefr_level = "C2 (Proficiency)"
-            elif score_percentage >= 75:
-                cefr_level = "C1 (Advanced)"
-            elif score_percentage >= 60:
-                cefr_level = "B2 (Upper Int.)"
-            elif score_percentage >= 40:
-                cefr_level = "B1 (Intermediate)"
-            else:
-                cefr_level = "A2 or below"
-            st.write(cefr_level)
-
-        with col5:
             # View button
             if st.button("View", key=f"view_{entry['id']}"):
                 st.session_state.selected_entry = entry

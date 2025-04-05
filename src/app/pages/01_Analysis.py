@@ -7,6 +7,16 @@ import plotly.graph_objects as go
 from PIL import Image
 from datetime import datetime
 from weasyprint import HTML
+from io import BytesIO
+from typing import Union
+
+# For PDF generation
+
+# For Word document generation
+from docx import Document
+from docx.shared import Pt, Inches, RGBColor, Cm
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.style import WD_STYLE_TYPE
 
 # Import the pipeline components
 from src.pipeline.main_pipe import Pipeline
@@ -425,6 +435,191 @@ def generate_pdf_report(analysis_results, output_path=None):
                 return f.read()
 
 
+# Function to generate Word document report
+def generate_word_report(analysis_results, output_path=None) -> Union[Path, bytes]:
+    """
+    Generate a Word document report from analysis results.
+
+    Args:
+        analysis_results: Dictionary containing analysis data
+        output_path: Optional path to save the Word doc (if None, returns bytes)
+
+    Returns:
+        Path to the saved document or document as bytes
+    """
+    # Create a temporary directory for assets if needed
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_dir = Path(temp_dir)
+
+        # 1. Extract key data
+        general_comment = analysis_results["general_comment"]
+        criterion_scores = analysis_results["criterion_scores"]
+        detailed_analysis = analysis_results["detailed_analysis"]
+        extracted_text = st.session_state.extracted_text
+
+        # Calculate total score
+        total_score = sum(score for score, _ in criterion_scores.values())
+        max_possible = 5 * len(criterion_scores)
+        score_percentage = (total_score / max_possible) * 100
+
+        # 2. Initialize document
+        doc = Document()
+
+        # Set document properties
+        doc.core_properties.title = "Proficiency Writing Analysis"
+        doc.core_properties.author = "Prof Reviewer"
+
+        # Configure document styles - using try/except to handle potential attribute errors
+        styles = doc.styles
+
+        # Apply heading styles with error handling
+        try:
+            # Modify heading styles for more compact appearance
+            heading1_style = styles["Heading 1"]
+            heading1_style.font.size = Pt(14)
+            heading1_style.font.bold = True
+            heading1_style.font.color.rgb = RGBColor(0, 51, 102)  # Dark blue
+
+            heading2_style = styles["Heading 2"]
+            heading2_style.font.size = Pt(12)
+            heading2_style.font.bold = True
+            heading2_style.font.color.rgb = RGBColor(0, 51, 102)  # Dark blue
+
+            # Create a style for score tables
+            if "Table Content" not in styles:
+                table_style = styles.add_style("Table Content", WD_STYLE_TYPE.PARAGRAPH)
+                table_style.font.size = Pt(9)
+
+            # Create a style for issue text references
+            if "Text Reference" not in styles:
+                ref_style = styles.add_style("Text Reference", WD_STYLE_TYPE.PARAGRAPH)
+                ref_style.font.italic = True
+                ref_style.font.size = Pt(9)
+        except AttributeError:
+            # If style attributes aren't accessible, continue without styling
+            pass
+
+        # Set narrower margins for more content
+        sections = doc.sections
+        for section in sections:
+            section.top_margin = Cm(1.5)
+            section.bottom_margin = Cm(1.5)
+            section.left_margin = Cm(2)
+            section.right_margin = Cm(2)
+
+        # 4. Add General Assessment section
+        doc.add_heading("Overall Assessment", level=1)
+        doc.add_paragraph(general_comment)
+
+        # Add score information
+        score_para = doc.add_paragraph()
+        score_para.add_run("Total Score: ").bold = True
+        score_para.add_run(f"{total_score}/{max_possible} ({score_percentage:.1f}%)")
+
+        # Add pass/fail indicator
+        result_para = doc.add_paragraph()
+        if score_percentage >= 60:
+            result_run = result_para.add_run("PASS")
+            result_run.bold = True
+            result_run.font.color.rgb = RGBColor(0, 128, 0)  # Green
+        else:
+            result_run = result_para.add_run("NEEDS IMPROVEMENT")
+            result_run.bold = True
+            result_run.font.color.rgb = RGBColor(255, 0, 0)  # Red
+
+        # 5. Add Criteria Breakdown section
+        doc.add_heading("Criteria Breakdown", level=1)
+
+        # Create criteria table
+        table = doc.add_table(rows=1, cols=3)
+        table.style = "Table Grid"
+
+        # Add header row
+        header_cells = table.rows[0].cells
+        header_cells[0].text = "Criterion"
+        header_cells[1].text = "Score"
+        header_cells[2].text = "Justification"
+
+        # Style header row
+        for cell in header_cells:
+            cell.paragraphs[0].runs[0].bold = True
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        # Set column widths - make criterion and score columns narrower, justification wider
+        table.columns[0].width = Inches(1.2)  # Narrower column for Criterion
+        table.columns[1].width = Inches(0.8)  # Narrowest column for Score
+        table.columns[2].width = Inches(4.0)  # Wider column for Justification
+
+        # Add criteria rows
+        for criterion, (score, justification) in criterion_scores.items():
+            row_cells = table.add_row().cells
+            row_cells[0].text = criterion.title()
+            row_cells[1].text = f"{score}/5"
+            row_cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            row_cells[2].text = justification
+
+            # Apply compact styling to table content
+            for cell in row_cells:
+                for paragraph in cell.paragraphs:
+                    paragraph.style = "Table Content"
+
+        # 6. Add Detailed Analysis section
+        doc.add_heading("Detailed Analysis", level=1)
+
+        # Group analysis by category
+        analysis_by_category = {}
+        for item in detailed_analysis:
+            category = item.get("category", "Other")
+            if category not in analysis_by_category:
+                analysis_by_category[category] = []
+            analysis_by_category[category].append(item)
+
+        # Add each category and its issues
+        for category, items in analysis_by_category.items():
+            doc.add_heading(f"{category} Issues ({len(items)})", level=2)
+
+            # Add each issue
+            for i, item in enumerate(items):
+                # Issue header
+                issue_para = doc.add_paragraph()
+                issue_para.add_run(f"Issue {i + 1}:").bold = True
+
+                # Text reference
+                doc.add_paragraph("Text Reference:", style="Heading 3")
+                ref_para = doc.add_paragraph(
+                    f'"{item.get("text_reference", "No text reference")}"',
+                    style="Text Reference",
+                )
+
+                # Issue description
+                doc.add_paragraph("Issue:", style="Heading 3")
+                doc.add_paragraph(item.get("issue", "No issue description"))
+
+                # Suggestions
+                doc.add_paragraph("Suggestions:", style="Heading 3")
+                suggestions = item.get("suggestions", [])
+                for suggestion in suggestions:
+                    suggestion_para = doc.add_paragraph()
+                    suggestion_para.paragraph_format.left_indent = Inches(0.25)
+                    suggestion_para.add_run("• ").bold = True
+                    suggestion_para.add_run(suggestion)
+
+                # Add separator between issues (if not the last one)
+                if i < len(items) - 1:
+                    doc.add_paragraph()
+
+        # 7. Save document
+        if output_path:
+            doc.save(str(output_path))
+            return output_path
+        else:
+            # Return as bytes for download
+            bio = BytesIO()
+            doc.save(bio)
+            bio.seek(0)
+            return bio.getvalue()
+
+
 # Create a two-column layout for the main interface
 col1, col2 = st.columns([1, 2])
 
@@ -607,7 +802,10 @@ with col2:
             col_export, col_save = st.columns(2)
 
             with col_export:
-                if st.button("Export to PDF"):
+                st.write("Export Options:")
+
+                # Replace nested columns with a horizontal layout using buttons side by side
+                if st.button("Export to PDF", key="pdf_export"):
                     with st.spinner("Generating PDF report..."):
                         try:
                             # Generate a unique filename
@@ -628,6 +826,30 @@ with col2:
                             )
                         except Exception as e:
                             st.error(f"Error generating PDF: {str(e)}")
+
+                if st.button("Export to Word", key="word_export"):
+                    with st.spinner("Generating Word report..."):
+                        try:
+                            # Generate a unique filename
+                            timestamp = int(time.time())
+                            filename = f"prof_reviewer_analysis_{timestamp}.docx"
+
+                            # Get Word document bytes
+                            docx_bytes = generate_word_report(
+                                st.session_state.analysis_results
+                            )
+
+                            # Offer download via Streamlit - cast bytes explicitly
+                            st.download_button(
+                                label="Download Word Report",
+                                data=bytes(docx_bytes)
+                                if isinstance(docx_bytes, bytes)
+                                else docx_bytes,
+                                file_name=filename,
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            )
+                        except Exception as e:
+                            st.error(f"Error generating Word document: {str(e)}")
 
             with col_save:
                 if st.button("Save to History"):
