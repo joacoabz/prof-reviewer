@@ -1,0 +1,30 @@
+[project]
+name = "prof-reviewer"
+version = "0.1.0"
+description = "A Cambridge Certificate of Proficiency in English writing reviewer that extracts text from handwritten essays using computer vision, providiing detailed analysis and feedback."
+readme = "README.md"
+requires-python = ">=3.11.5"
+dependencies = [
+    "openai>=1.0.0",
+    "pillow>=10.0.0",
+    "streamlit>=1.30.0",
+    "python-dotenv>=1.0.0",
+    "loguru>=0.7.3",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src",
+    "prompts"
+
+]
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "src",
+    "prompts"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
