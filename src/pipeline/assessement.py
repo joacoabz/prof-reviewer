@@ -1,5 +1,5 @@
 import json
-
+import time
 from pathlib import Path
 
 from utils.logger import logger
@@ -122,12 +122,17 @@ class Assessment:
 
         scores = {}
         for criterion, criterion_analysis in analysis.items():
+            logger.info(f"Starting scoring process for criterion: {criterion}")
+
             criterion_descriptor_path = Path(
                 f"prompts/stages/2-assessement/{criterion}/descriptor.md"
             )
 
             with open(criterion_descriptor_path, "r", encoding="utf-8") as file:
                 criterion_descriptor = file.read()
+                logger.debug(
+                    f"Loaded descriptor for {criterion} ({len(criterion_descriptor)} chars)"
+                )
 
             criterion_scoring_prompt = scoring_prompt.replace(
                 "{Criterion-descriptor}",
@@ -142,15 +147,26 @@ class Assessment:
                 "{Analysis}", criterion_analysis
             )
 
+            logger.debug(
+                f"Constructed scoring prompt for {criterion} ({len(criterion_scoring_prompt)} chars)"
+            )
+            logger.info(f"Requesting score evaluation for '{criterion}' criterion")
+
             response = openai_client.get_response(
                 criterion_scoring_prompt, response_format={"type": "json_object"}
             )
 
             response_dict = json.loads(response)
-            scores[criterion] = (
-                response_dict.get("score", 0),
-                response_dict.get("justification", "No justification found"),
+            score = response_dict.get("score", 0)
+            justification = response_dict.get("justification", "No justification found")
+
+            logger.info(f"Received score for {criterion}: {score}/5")
+            logger.debug(
+                f"Justification length for {criterion}: {len(justification)} chars"
             )
+
+            scores[criterion] = (score, justification)
+            time.sleep(1)
 
         return scores
 

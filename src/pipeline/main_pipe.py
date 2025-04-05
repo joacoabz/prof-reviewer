@@ -9,6 +9,9 @@ from utils.logger import PipelineLogger, log_time
 TASK_UNDERSTANDING_PROMPT_PATH = Path(
     "prompts/stages/1-task-understanding/task-understanding.md"
 )
+DETAILED_ANALYSIS_PROMPT_PATH = Path(
+    "prompts/stages/4-detailed-analysis/detailed-analysis.md"
+)
 
 
 class Pipeline:
@@ -16,12 +19,16 @@ class Pipeline:
         self,
         task: str,
         task_understanding_prompt_path: Path = TASK_UNDERSTANDING_PROMPT_PATH,
+        detailed_analysis_prompt_path: Path = DETAILED_ANALYSIS_PROMPT_PATH,
     ):
         self.task = task
         self.pipeline_logger = PipelineLogger(task)
 
         with open(task_understanding_prompt_path, "r", encoding="utf-8") as file:
             self.task_understanding_prompt = file.read()
+
+        with open(detailed_analysis_prompt_path, "r", encoding="utf-8") as file:
+            self.detailed_analysis_prompt = file.read()
 
     def task_understanding(self, task: str, openai_client: OpenAIClient) -> str:
         """
@@ -56,7 +63,7 @@ class Pipeline:
         task_understanding: str,
         students_solution: str,
         openai_client: OpenAIClient,
-    ) -> tuple[str, dict[str, tuple[int, str]]]:
+    ) -> tuple[str, dict[str, tuple[int, str]], dict[str, str]]:
         """
         The purpose of this step of the pipeline is to assess the student's solution
         in the context of the task.
@@ -76,6 +83,7 @@ class Pipeline:
         Returns:
             A general comment on the student's solution.
             A dictionary with the score for each criterion.
+            A dictionary with the analysis for each criterion.
         """
         assessment = Assessment(task=self.task)
 
@@ -105,7 +113,48 @@ class Pipeline:
             )
             self.pipeline_logger.log_general_comment(general_comment)
 
-        return general_comment, criterion_scores
+        return general_comment, criterion_scores, analysis
+
+    def detailed_analysis(
+        self,
+        task_understanding: str,
+        students_solution: str,
+        analysis: str,
+        openai_client: OpenAIClient,
+    ) -> list[dict[str, str]]:
+        """
+        The purpose of this step of the pipeline is to make a detailed analysis
+        of the student's solution.
+        """
+        with self.pipeline_logger.step_timing("detailed_analysis"):
+            detailed_analysis_prompt = self.detailed_analysis_prompt.replace(
+                "{Task}", self.task
+            )
+
+            detailed_analysis_prompt = detailed_analysis_prompt.replace(
+                "{Task-Undestanding}", task_understanding
+            )
+
+            detailed_analysis_prompt = detailed_analysis_prompt.replace(
+                "{Candidates-Solution}", students_solution
+            )
+
+            detailed_analysis_prompt = detailed_analysis_prompt.replace(
+                "{Analysis}", analysis
+            )
+
+            response = openai_client.get_response(
+                detailed_analysis_prompt, response_format={"type": "json_object"}
+            )
+
+            response_dict = json.loads(response)
+            detailed_analysis = response_dict.get(
+                "improvement_areas", "No detailed analysis found"
+            )
+
+            self.pipeline_logger.log_detailed_analysis(detailed_analysis)
+
+            return detailed_analysis
 
     def understand_solution(
         self,
@@ -127,7 +176,7 @@ class Pipeline:
     def run(
         self,
         image_paths: list[Path],
-    ) -> tuple[str, dict[str, tuple[int, str]]]:
+    ) -> tuple[str, dict[str, tuple[int, str]], list[dict[str, str]]]:
         """
         Execute the complete assessment pipeline.
 
@@ -156,12 +205,21 @@ class Pipeline:
             task_understanding = json.dumps(task_understanding_obj)
             self.pipeline_logger.log_task_understanding(task_understanding_obj)
 
-            general_comment, criterion_scores = self.assessment(
+            general_comment, criterion_scores, analysis = self.assessment(
                 task_understanding=task_understanding,
                 students_solution=students_solution,
                 openai_client=openai_client,
             )
 
+            analysis = json.dumps(analysis)
+
+            detailed_analysis = self.detailed_analysis(
+                task_understanding=task_understanding,
+                students_solution=students_solution,
+                analysis=analysis,
+                openai_client=openai_client,
+            )
+
             self.pipeline_logger.complete_run()
 
-            return general_comment, criterion_scores
+            return general_comment, criterion_scores, detailed_analysis

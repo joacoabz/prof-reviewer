@@ -10,6 +10,9 @@ dependencies = [
     "streamlit>=1.30.0",
     "python-dotenv>=1.0.0",
     "loguru>=0.7.3",
+    "plotly>=6.0.1",
+    "weasyprint>=65.0",
+    "kaleido==0.2.0",
 ]
 
 [tool.hatch.build.targets.sdist]

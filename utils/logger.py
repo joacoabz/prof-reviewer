@@ -79,6 +79,7 @@ class PipelineLogger:
             "analysis": {},
             "criterion_scores": {},
             "general_comment": "",
+            "detailed_analysis": [],
         }
 
         # Create logs directory if it doesn't exist
@@ -131,6 +132,12 @@ class PipelineLogger:
         """Log the general comment."""
         self.pipeline_data["general_comment"] = comment
         logger.info("General comment generated and logged")
+        self.save()
+
+    def log_detailed_analysis(self, detailed_analysis: list[dict[str, str]]):
+        """Log the detailed analysis of the student's solution."""
+        self.pipeline_data["detailed_analysis"] = detailed_analysis
+        logger.info("Detailed analysis completed and logged")
         self.save()
 
     def complete_run(self):
