@@ -127,7 +127,7 @@ class OpenAIClient:
         prompt: str,
         model: str = "gpt-4o",
         images: Optional[List[Path]] = None,
-        temperature: Optional[float] = None,
+        temperature: Optional[float] = 0.3,
         max_tokens: Optional[int] = None,
         response_format: Optional[dict] = None,
     ) -> str:

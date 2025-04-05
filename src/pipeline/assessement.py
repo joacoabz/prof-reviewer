@@ -42,7 +42,7 @@ class Assessment:
         with open(general_comment_prompt_path, "r", encoding="utf-8") as file:
             self.general_comment_prompt = file.read()
 
-        logger.info("Initialized Assessement with")
+        logger.info("Initialized Assessement")
 
     def pre_scoring_assessment(
         self,

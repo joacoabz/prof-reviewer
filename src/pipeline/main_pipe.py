@@ -3,6 +3,7 @@ from pathlib import Path
 from src.ocr.ocr import OCR
 from src.openai.client import OpenAIClient
 from src.pipeline.assessement import Assessment
+from utils.logger import PipelineLogger, log_time
 
 
 TASK_UNDERSTANDING_PROMPT_PATH = Path(
@@ -17,6 +18,7 @@ class Pipeline:
         task_understanding_prompt_path: Path = TASK_UNDERSTANDING_PROMPT_PATH,
     ):
         self.task = task
+        self.pipeline_logger = PipelineLogger(task)
 
         with open(task_understanding_prompt_path, "r", encoding="utf-8") as file:
             self.task_understanding_prompt = file.read()
@@ -33,17 +35,21 @@ class Pipeline:
         Returns:
             A string representing the detailed understanding of the task.
         """
+        with self.pipeline_logger.step_timing("task_understanding"):
+            task_understanding_prompt = self.task_understanding_prompt.replace(
+                "{Task}", task
+            )
 
-        task_understanding_prompt = self.task_understanding_prompt.replace(
-            "{Task}", task
-        )
+            response = openai_client.get_response(
+                task_understanding_prompt, response_format={"type": "json_object"}
+            )
 
-        response = openai_client.get_response(
-            task_understanding_prompt, response_format={"type": "json_object"}
-        )
+            response_dict = json.loads(response)
+            task_understanding = response_dict.get(
+                "task_understanding", "No task understanding found"
+            )
 
-        response_dict = json.loads(response)
-        return response_dict.get("task_understanding", "No task understanding found")
+            return task_understanding
 
     def assessment(
         self,
@@ -73,25 +79,31 @@ class Pipeline:
         """
         assessment = Assessment(task=self.task)
 
-        analysis = assessment.pre_scoring_assessment(
-            task_understanding=task_understanding,
-            candidate_solution=students_solution,
-            openai_client=openai_client,
-        )
+        with self.pipeline_logger.step_timing("analysis"):
+            analysis = assessment.pre_scoring_assessment(
+                task_understanding=task_understanding,
+                candidate_solution=students_solution,
+                openai_client=openai_client,
+            )
+            self.pipeline_logger.log_analysis(analysis)
 
-        criterion_scores = assessment.get_criterion_scores(
-            analysis=analysis,
-            task_understanding=task_understanding,
-            candidate_solution=students_solution,
-            openai_client=openai_client,
-        )
+        with self.pipeline_logger.step_timing("criterion_scoring"):
+            criterion_scores = assessment.get_criterion_scores(
+                analysis=analysis,
+                task_understanding=task_understanding,
+                candidate_solution=students_solution,
+                openai_client=openai_client,
+            )
+            self.pipeline_logger.log_criterion_scores(criterion_scores)
 
-        general_comment = assessment.get_general_comment(
-            task_understanding=task_understanding,
-            candidate_solution=students_solution,
-            criterion_scores=criterion_scores,
-            openai_client=openai_client,
-        )
+        with self.pipeline_logger.step_timing("general_comment"):
+            general_comment = assessment.get_general_comment(
+                task_understanding=task_understanding,
+                candidate_solution=students_solution,
+                criterion_scores=criterion_scores,
+                openai_client=openai_client,
+            )
+            self.pipeline_logger.log_general_comment(general_comment)
 
         return general_comment, criterion_scores
 
@@ -107,8 +119,10 @@ class Pipeline:
         Args:
             prompt: The prompt to be used to understand the image.
         """
-        ocr = OCR(openai_client=openai_client)
-        return ocr.extract_text(image_paths=image_paths)
+        with self.pipeline_logger.step_timing("understand_solution"):
+            ocr = OCR(openai_client=openai_client)
+            solution = ocr.extract_text(image_paths=image_paths)
+            return solution
 
     def run(
         self,
@@ -128,21 +142,26 @@ class Pipeline:
             - dict[str, tuple[int, str]]: A dictionary mapping criterion names to
                 tuples of (score, justification)
         """
+        with log_time("Complete pipeline execution"):
+            openai_client = OpenAIClient()
 
-        openai_client = OpenAIClient()
+            students_solution = self.understand_solution(
+                image_paths=image_paths, openai_client=openai_client
+            )
+            self.pipeline_logger.log_student_solution(students_solution)
 
-        students_solution = self.understand_solution(
-            image_paths=image_paths, openai_client=openai_client
-        )
+            task_understanding_obj = self.task_understanding(
+                task=self.task, openai_client=openai_client
+            )
+            task_understanding = json.dumps(task_understanding_obj)
+            self.pipeline_logger.log_task_understanding(task_understanding_obj)
 
-        task_understanding = json.dumps(
-            self.task_understanding(task=self.task, openai_client=openai_client)
-        )
+            general_comment, criterion_scores = self.assessment(
+                task_understanding=task_understanding,
+                students_solution=students_solution,
+                openai_client=openai_client,
+            )
 
-        general_comment, criterion_scores = self.assessment(
-            task_understanding=task_understanding,
-            students_solution=students_solution,
-            openai_client=openai_client,
-        )
+            self.pipeline_logger.complete_run()
 
-        return general_comment, criterion_scores
+            return general_comment, criterion_scores
