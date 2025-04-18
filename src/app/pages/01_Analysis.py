@@ -197,6 +197,22 @@ def run_analysis(task, image_files):
                 openai_client=openai_client,
             )
 
+            # Build full analysis for encouraging comment
+            full_analysis = ""
+            for analysis_item in detailed_analysis:
+                analysis_str = json.dumps(analysis_item)
+                full_analysis += analysis_str + "\n\n"
+
+            # Update processing stage
+            st.session_state.processing_stage = "Generating encouraging comment..."
+            time.sleep(0.5)  # Simulate processing time
+
+            # Generate encouraging comment
+            encouraging_comment = pipeline.encouraging_comment(
+                detailed_analysis=full_analysis,
+                openai_client=openai_client,
+            )
+
             # Store results in session state
             st.session_state.analysis_results = {
                 "general_comment": general_comment,
@@ -204,6 +220,7 @@ def run_analysis(task, image_files):
                 "detailed_analysis": detailed_analysis,
                 "analysis": analysis,
                 "task_understanding": task_understanding_obj,
+                "encouraging_comment": encouraging_comment,
             }
 
             # Set analysis complete
@@ -238,6 +255,9 @@ def save_to_history():
         },
         "detailed_analysis": st.session_state.analysis_results["detailed_analysis"],
         "extracted_text": st.session_state.extracted_text,
+        "encouraging_comment": st.session_state.analysis_results.get(
+            "encouraging_comment", ""
+        ),
         "total_score": sum(
             score
             for score, _ in st.session_state.analysis_results[
@@ -279,6 +299,7 @@ def generate_pdf_report(analysis_results, output_path=None):
         general_comment = analysis_results["general_comment"]
         criterion_scores = analysis_results["criterion_scores"]
         detailed_analysis = analysis_results["detailed_analysis"]
+        encouraging_comment = analysis_results.get("encouraging_comment", "")
         extracted_text = st.session_state.extracted_text
 
         # Calculate total score
@@ -350,6 +371,13 @@ def generate_pdf_report(analysis_results, output_path=None):
                             <img src="file://{radar_path}" alt="Radar Chart" style="max-width: 100%;">
                         </div>
                     </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Encouraging Feedback</h2>
+                <div class="info-box" style="background-color: #e6ffe6; border-left: 4px solid #66cc66;">
+                    {encouraging_comment}
                 </div>
             </div>
             
@@ -455,6 +483,7 @@ def generate_word_report(analysis_results, output_path=None) -> Union[Path, byte
         general_comment = analysis_results["general_comment"]
         criterion_scores = analysis_results["criterion_scores"]
         detailed_analysis = analysis_results["detailed_analysis"]
+        encouraging_comment = analysis_results.get("encouraging_comment", "")
         extracted_text = st.session_state.extracted_text
 
         # Calculate total score
@@ -527,7 +556,11 @@ def generate_word_report(analysis_results, output_path=None) -> Union[Path, byte
             result_run.bold = True
             result_run.font.color.rgb = RGBColor(255, 0, 0)  # Red
 
-        # 5. Add Criteria Breakdown section
+        # 5. Add Encouraging Feedback section
+        doc.add_heading("Encouraging Feedback", level=1)
+        doc.add_paragraph(encouraging_comment)
+
+        # 6. Add Criteria Breakdown section
         doc.add_heading("Criteria Breakdown", level=1)
 
         # Create criteria table
@@ -563,7 +596,7 @@ def generate_word_report(analysis_results, output_path=None) -> Union[Path, byte
                 for paragraph in cell.paragraphs:
                     paragraph.style = "Table Content"
 
-        # 6. Add Detailed Analysis section
+        # 7. Add Detailed Analysis section
         doc.add_heading("Detailed Analysis", level=1)
 
         # Group analysis by category
@@ -608,7 +641,11 @@ def generate_word_report(analysis_results, output_path=None) -> Union[Path, byte
                 if i < len(items) - 1:
                     doc.add_paragraph()
 
-        # 7. Save document
+        # 8. Add Student Solution section
+        doc.add_heading("Student Solution", level=1)
+        doc.add_paragraph(extracted_text)
+
+        # 9. Save document
         if output_path:
             doc.save(str(output_path))
             return output_path
@@ -723,6 +760,7 @@ with col1:
                 "Analyzing task requirements...",
                 "Assessing student solution...",
                 "Generating detailed feedback...",
+                "Generating encouraging comment...",
                 "Analysis complete!",
             ]
 
@@ -757,6 +795,11 @@ with col2:
             # General comment section
             st.subheader("Overall Assessment")
             st.info(st.session_state.analysis_results["general_comment"])
+
+            # Encouraging comment section (if available)
+            if "encouraging_comment" in st.session_state.analysis_results:
+                st.subheader("Encouraging Feedback")
+                st.success(st.session_state.analysis_results["encouraging_comment"])
 
             # Calculate total score
             criterion_scores = st.session_state.analysis_results["criterion_scores"]
@@ -955,6 +998,14 @@ with col2:
                         f"**Most Common Issue Category:** {most_common_category}"
                     )
 
+            # Encouraging comment section
+            st.subheader("Encouraging Feedback")
+            st.success(
+                st.session_state.analysis_results.get(
+                    "encouraging_comment", "No encouraging comment available"
+                )
+            )
+
         # TAB 3: EXTRACTED TEXT
         with tab_text:
             st.subheader("Extracted Student Solution")
@@ -995,3 +1046,11 @@ with col2:
             # Detailed analysis
             with st.expander("Detailed Analysis"):
                 st.json(st.session_state.analysis_results["detailed_analysis"])
+
+            # Encouraging comment
+            with st.expander("Encouraging Comment"):
+                st.write(
+                    st.session_state.analysis_results.get(
+                        "encouraging_comment", "No encouraging comment available"
+                    )
+                )

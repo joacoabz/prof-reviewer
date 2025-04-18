@@ -103,9 +103,9 @@ class Assessment:
     def get_criterion_scores(
         self,
         analysis: dict[str, str],
-        task_understanding: str,
-        candidate_solution: str,
+        task_description: str,
         openai_client: OpenAIClient,
+        model: str = "gpt-4.1",
     ) -> dict[str, tuple[int, str]]:
         """
         Get the score for a specific criterion.
@@ -119,6 +119,7 @@ class Assessment:
         """
 
         scoring_prompt = self.scoring_assessment_prompt
+        scoring_prompt = scoring_prompt.replace("{Task-Description}", task_description)
 
         scores = {}
         for criterion, criterion_analysis in analysis.items():
@@ -153,7 +154,9 @@ class Assessment:
             logger.info(f"Requesting score evaluation for '{criterion}' criterion")
 
             response = openai_client.get_response(
-                criterion_scoring_prompt, response_format={"type": "json_object"}
+                criterion_scoring_prompt,
+                response_format={"type": "json_object"},
+                model=model,
             )
 
             response_dict = json.loads(response)

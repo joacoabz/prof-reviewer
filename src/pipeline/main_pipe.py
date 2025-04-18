@@ -13,6 +13,10 @@ DETAILED_ANALYSIS_PROMPT_PATH = Path(
     "prompts/stages/4-detailed-analysis/detailed-analysis.md"
 )
 
+ENCOURAGING_COMMENT_PROMPT_PATH = Path(
+    "prompts/stages/6-encouraging-comment/encouraging-comment.md"
+)
+
 
 class Pipeline:
     def __init__(
@@ -20,6 +24,7 @@ class Pipeline:
         task: str,
         task_understanding_prompt_path: Path = TASK_UNDERSTANDING_PROMPT_PATH,
         detailed_analysis_prompt_path: Path = DETAILED_ANALYSIS_PROMPT_PATH,
+        encouraging_comment_prompt_path: Path = ENCOURAGING_COMMENT_PROMPT_PATH,
     ):
         self.task = task
         self.pipeline_logger = PipelineLogger(task)
@@ -29,6 +34,9 @@ class Pipeline:
 
         with open(detailed_analysis_prompt_path, "r", encoding="utf-8") as file:
             self.detailed_analysis_prompt = file.read()
+
+        with open(encouraging_comment_prompt_path, "r", encoding="utf-8") as file:
+            self.encouraging_comment_prompt = file.read()
 
     def task_understanding(self, task: str, openai_client: OpenAIClient) -> str:
         """
@@ -98,8 +106,7 @@ class Pipeline:
         with self.pipeline_logger.step_timing("criterion_scoring"):
             criterion_scores = assessment.get_criterion_scores(
                 analysis=analysis,
-                task_understanding=task_understanding,
-                candidate_solution=students_solution,
+                task_description=self.task,
                 openai_client=openai_client,
             )
             self.pipeline_logger.log_criterion_scores(criterion_scores)
@@ -173,10 +180,37 @@ class Pipeline:
             solution = ocr.extract_text(image_paths=image_paths)
             return solution
 
+    def encouraging_comment(
+        self,
+        detailed_analysis: str,
+        openai_client: OpenAIClient,
+    ) -> str:
+        """
+        The purpose of this step of the pipeline is to generate an encouraging comment
+        for the student based on the detailed analysis.
+
+        Args:
+            detailed_analysis: The detailed analysis of the student's solution.
+
+        Returns:
+            A string representing the encouraging comment.
+        """
+        with self.pipeline_logger.step_timing("encouraging_comment"):
+            encouraging_comment_prompt = self.encouraging_comment_prompt.replace(
+                "{Detailed-Analysis}", detailed_analysis
+            )
+
+            response = openai_client.get_response(
+                prompt=encouraging_comment_prompt,
+                model="gpt-4.1",
+            )
+
+        return response
+
     def run(
         self,
         image_paths: list[Path],
-    ) -> tuple[str, dict[str, tuple[int, str]], list[dict[str, str]]]:
+    ) -> tuple[str, dict[str, tuple[int, str]], list[dict[str, str]], str]:
         """
         Execute the complete assessment pipeline.
 
@@ -221,8 +255,24 @@ class Pipeline:
                     openai_client=openai_client,
                 )
 
+                full_analysis = ""
+                for analysis in detailed_analysis:
+                    analysis_str = json.dumps(analysis)
+                    full_analysis += analysis_str + "\n\n"
+
+                encouraging_comment = self.encouraging_comment(
+                    detailed_analysis=full_analysis,
+                    openai_client=openai_client,
+                )
+
                 self.pipeline_logger.complete_run()
 
-                return general_comment, criterion_scores, detailed_analysis
+                return (
+                    general_comment,
+                    criterion_scores,
+                    detailed_analysis,
+                    encouraging_comment,
+                )
+
             except Exception as e:
                 raise e

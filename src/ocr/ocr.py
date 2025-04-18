@@ -26,6 +26,7 @@ class OCR:
                 Respond ONLY with the exact text content from the image, nothing more. \
                 No explanations, no additional context, no formatting instructions.",
             images=image_paths,
+            model="gpt-4o",
         )
 
         logger.info(f"OCR extraction completed, extracted {len(response)} characters")

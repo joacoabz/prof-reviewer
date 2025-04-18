@@ -57,12 +57,12 @@ class OpenAIClient:
     def get_raw_response(
         self,
         prompt: str,
-        model: str = "gpt-4o",
+        model: str = "gpt-4.1",
         images: Optional[List[Path]] = None,
-        temperature: Optional[float] = None,
+        temperature: Optional[float] = 0.0,
         max_tokens: Optional[int] = None,
         response_format: Optional[dict] = None,
-        timeout: Optional[float] = 30.0,
+        timeout: Optional[float] = 120.0,
     ) -> ChatCompletion:
         """
         Generate a response from OpenAI models and return the raw API response.
@@ -141,19 +141,19 @@ class OpenAIClient:
     def get_response(
         self,
         prompt: str,
-        model: str = "gpt-4o",
+        model: str = "gpt-4.1",
         images: Optional[List[Path]] = None,
-        temperature: Optional[float] = 0.15,
+        temperature: Optional[float] = 0.0,
         max_tokens: Optional[int] = None,
         response_format: Optional[dict] = None,
-        timeout: Optional[float] = 60.0,
+        timeout: Optional[float] = 120.0,
     ) -> str:
         """
         Generate a response from OpenAI models and return the text content.
 
         Args:
             prompt: The text prompt to send to the model.
-            model: The OpenAI model to use (default: gpt-4o).
+            model: The OpenAI model to use (default: gpt-4.1).
             images: Optional list of images to include with the prompt.
             temperature: Controls randomness (0-1.0).
             max_tokens: Maximum number of tokens to generate.
@@ -171,7 +171,7 @@ class OpenAIClient:
             "prompt": prompt,
             "model": model,
             "images": images,
-            "temperature": temperature,
+            "temperature": 0.0,
             "max_tokens": max_tokens,
             "response_format": response_format,
             "timeout": timeout,

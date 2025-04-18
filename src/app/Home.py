@@ -121,7 +121,7 @@ with benefit_col2:
 st.markdown("---")
 st.markdown("### Technical Information")
 st.markdown("""
-- Built with Streamlit and OpenAI's GPT-4o model
+- Built with Streamlit and OpenAI's gpt-4.1 model
 - OCR capabilities for handwritten text extraction
 - Assessment based on Cambridge English Proficiency criteria
 """)

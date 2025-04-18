@@ -6,17 +6,20 @@ Has the candidate responded to all parts of the question? For example, if the ta
 ### 2. Relevance of Information
 Are all the ideas and examples presented in the response connected directly to the task? Responses that go off-topic, include generic filler, or shift the focus away from what was asked may lose marks in this area.
 
-### 3. Coverage of Key Points
+### 3. Word Count Adherence
+Has the candidate written within the specified word count range? Writing significantly under the required word count may indicate incomplete task fulfillment, while exceeding it substantially can suggest inclusion of irrelevant content or poor focus. Both can negatively impact the Content score.
+
+### 4. Coverage of Key Points
 Does the response include all the points necessary to fully inform the target reader? Any **omissions**, such as skipping part of the prompt or failing to provide a conclusion when it's clearly required, will negatively affect the score.
 
-### 4. Appropriacy of Detail and Support
+### 5. Appropriacy of Detail and Support
 Are ideas **sufficiently developed**? Does the writer provide appropriate explanations, evidence, or examples to support their points? Content should not be superficial or vague.
 
-### 5. No Misinterpretation of the Task
+### 6. No Misinterpretation of the Task
 Has the candidate understood the task correctly? Misreading the purpose or type of text (e.g., writing an opinion essay instead of a proposal) counts against Content, even if the language is otherwise strong.
 
-### 6. Reader Awareness
-Would the **target reader** be fully informed after reading the text? This means the writing must satisfy the intended audience’s expectations (e.g., a teacher, magazine reader, committee) and purpose (e.g., to inform, persuade, describe).
+### 7. Reader Awareness
+Would the **target reader** be fully informed after reading the text? This means the writing must satisfy the intended audience's expectations (e.g., a teacher, magazine reader, committee) and purpose (e.g., to inform, persuade, describe).
 
 ---
 
