@@ -9,6 +9,7 @@ from datetime import datetime
 from weasyprint import HTML
 from io import BytesIO
 from typing import Union
+from pdf2image import convert_from_bytes
 
 # For PDF generation
 
@@ -138,15 +139,41 @@ def run_analysis(task, image_files):
 
     # Create temporary directory for image files
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Save uploaded files to the temporary directory
+        # Save uploaded files to the temporary directory, converting PDFs to images
         image_paths = []
         for idx, uploaded_file in enumerate(image_files):
-            file_path = (
-                Path(temp_dir) / f"image_{idx}.{uploaded_file.name.split('.')[-1]}"
-            )
-            with open(file_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            image_paths.append(file_path)
+            original_filename_stem = Path(uploaded_file.name).stem
+            original_extension = Path(uploaded_file.name).suffix.lower()
+
+            if uploaded_file.type == "application/pdf" or original_extension == ".pdf":
+                try:
+                    pdf_pages_as_images = convert_from_bytes(uploaded_file.getvalue(), fmt='png', thread_count=4) # Added thread_count for potential speedup
+                    if not pdf_pages_as_images:
+                        st.warning(f"Could not extract any pages from PDF: {uploaded_file.name}")
+                        continue # Skip this file or handle as an error
+
+                    for page_num, pil_image in enumerate(pdf_pages_as_images):
+                        # Save each page as a PNG
+                        file_path = Path(temp_dir) / f"{original_filename_stem}_page_{page_num + 1}.png"
+                        pil_image.save(file_path, "PNG")
+                        image_paths.append(file_path)
+                    st.info(f"Converted {uploaded_file.name} ({len(pdf_pages_as_images)} pages) to PNG images for analysis.")
+                except Exception as e:
+                    st.error(f"Error converting PDF {uploaded_file.name} for analysis: {e}")
+                    # Optionally, could add a placeholder or skip this file if critical
+                    continue # Skip this problematic PDF
+            else:
+                # Handle regular image files (jpg, png, etc.)
+                # Use a safe filename based on index and original extension
+                file_path = Path(temp_dir) / f"image_{idx}{original_extension}"
+                with open(file_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                image_paths.append(file_path)
+        
+        if not image_paths and image_files: # Check if all files failed conversion
+            st.error("No valid image files could be prepared for analysis. Please check your uploaded files.")
+            st.session_state.processing_stage = "Error: File preparation failed."
+            return # Stop further processing
 
         try:
             # Initialize the pipeline
@@ -706,7 +733,22 @@ with col1:
             col_idx = idx % 3
             with thumbnail_cols[col_idx]:
                 # Display image thumbnail
-                image = Image.open(uploaded_file)
+                if uploaded_file.type == "application/pdf":
+                    # Convert PDF to image (first page only for thumbnail)
+                    try:
+                        pdf_images = convert_from_bytes(uploaded_file.getvalue(), first_page=1, last_page=1, fmt='png')
+                        if pdf_images:
+                            image = pdf_images[0]
+                        else:
+                            st.warning(f"Could not extract an image from {uploaded_file.name}. Displaying a placeholder.")
+                            # You might want to create/use a placeholder image here
+                            image = Image.new('RGB', (150, 200), color = 'gray')
+                    except Exception as e:
+                        st.error(f"Error converting PDF {uploaded_file.name} to image: {e}")
+                        # Display a placeholder or skip
+                        image = Image.new('RGB', (150, 200), color = 'darkgray') # Placeholder
+                else:
+                    image = Image.open(uploaded_file)
                 st.image(image, width=150, caption=f"Page {idx + 1}")
 
     # Manual text input toggle (as an alternative to OCR)
